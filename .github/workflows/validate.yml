@@ -1,0 +1,26 @@
+name: Terraform Validate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: "Validar Código TF"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        # Usamos -backend=false porque solo queremos validar sintaxis, 
+        # no necesitamos conectarnos a un estado real todavía.
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
