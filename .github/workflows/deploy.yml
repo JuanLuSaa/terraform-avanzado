@@ -11,15 +11,24 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # Este paso levanta LocalStack dentro del servidor de GitHub
-      - name: Iniciar LocalStack
-        uses: localstack/localstack-github-action@v0.2.2
-        with:
-          image-tag: 'latest'
-          install-awslocal: 'true'
+      # Levantamos LocalStack manualmente usando Docker para evitar errores de "Action not found"
+      - name: Iniciar LocalStack (v4.14.0)
+        run: |
+          docker run -d \
+            --name localstack_main \
+            -p 4566:4566 \
+            -e SERVICES=s3,dynamodb \
+            -e DEBUG=1 \
+            localstack/localstack:4.14.0
+          
+          # Esperar a que LocalStack esté listo
+          timeout 60s bash -c "until curl -s localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'; do sleep 2; done"
+          echo "LocalStack está listo para recibir comandos"
 
       - name: Configurar Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
         run: terraform init
@@ -28,5 +37,4 @@ jobs:
         run: terraform plan
 
       - name: Terraform Apply
-        # -auto-approve es vital porque en CI/CD no hay nadie para escribir "yes"
         run: terraform apply -auto-approve
