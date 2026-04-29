@@ -1,40 +1,46 @@
-name: Despliegue con Terraform y LocalStack
+name: Terraform Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      AWS_DEFAULT_REGION: eu-west-1
-
-#Crea un contenedor con localstack para simular los servicios de AWS
+    # Levantamos LocalStack como un servicio nativo de GitHub
     services:
       localstack:
         image: localstack/localstack:4.14.0
         ports:
           - 4566:4566
-
+        env:
+          SERVICES: s3,dynamodb
+          DEBUG: 1
 
     steps:
-      - name: Elige el repositorio
+      - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Establece Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
-      - name: Inicializa Terraform
-        working-directory: terraform
-        run: terraform init -input=false
+      # Pequeña espera de seguridad para que el servicio esté listo
+      - name: Esperar a LocalStack
+        run: |
+          echo "Esperando a que LocalStack responda..."
+          until curl -s http://localhost:4566/_localstack/health | grep -q "\"s3\": \"running\""; do
+            sleep 5
+            echo "Todavía cargando..."
+          done
+          echo "¡LocalStack listo!"
 
-      - name: Plan con Terraform
-        working-directory: terraform
-        run: terraform plan -input=false
+      - name: Terraform Init
+        run: terraform init
 
-      - name: Despliega con Terraform
-        working-directory: terraform
-        run: terraform apply -auto-approve -input=false
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
