@@ -7,34 +7,31 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Levantamos LocalStack como un servicio nativo de GitHub
-    services:
-      localstack:
-        image: localstack/localstack:4.14.0
-        ports:
-          - 4566:4566
-        env:
-          SERVICES: s3,dynamodb
-          DEBUG: 1
-
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
+
+      - name: Iniciar LocalStack (v4.14.0)
+        run: |
+          # Lanzamos LocalStack y nos olvidamos de problemas de red de "services"
+          docker run -d \
+            --name localstack_main \
+            -p 4566:4566 \
+            -e SERVICES=s3,dynamodb \
+            localstack/localstack:4.14.0
+
+          # En lugar de un bucle infinito que puede fallar, 
+          # damos un tiempo fijo de carga y una sola comprobación simple.
+          echo "Esperando 45 segundos a que LocalStack levante..."
+          sleep 45
+
+          # Comprobamos si responde algo, lo que sea, en el puerto 4566
+          curl -s http://localhost:4566/_localstack/health || echo "Aviso: No responde health, pero intentaremos seguir."
 
       - name: Configurar Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
-
-      # Pequeña espera de seguridad para que el servicio esté listo
-      - name: Esperar a LocalStack
-        run: |
-          echo "Esperando a que LocalStack responda..."
-          until curl -s http://localhost:4566/_localstack/health | grep -q "\"s3\": \"running\""; do
-            sleep 5
-            echo "Todavía cargando..."
-          done
-          echo "¡LocalStack listo!"
 
       - name: Terraform Init
         run: terraform init
@@ -43,4 +40,5 @@ jobs:
         run: terraform plan
 
       - name: Terraform Apply
+        # Usamos -auto-approve para que no pida confirmación
         run: terraform apply -auto-approve
