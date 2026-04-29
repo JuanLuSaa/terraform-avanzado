@@ -1,40 +1,40 @@
-name: Terraform Deploy
+name: Despliegue con Terraform y LocalStack
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: eu-west-1
+
+#Crea un contenedor con localstack para simular los servicios de AWS
+    services:
+      localstack:
+        image: localstack/localstack:4.14.0
+        ports:
+          - 4566:4566
+
+
     steps:
-      - name: Checkout del código
+      - name: Elige el repositorio
         uses: actions/checkout@v4
 
-      # Levantamos LocalStack manualmente usando Docker para evitar errores de "Action not found"
-      - name: Iniciar LocalStack (v4.14.0)
-        run: |
-          docker run -d \
-            --name localstack_main \
-            -p 4566:4566 \
-            -e SERVICES=s3,dynamodb \
-            -e DEBUG=1 \
-            localstack/localstack:4.14.0
-          
-          # Esperar a que LocalStack esté listo
-          timeout 60s bash -c "until curl -s localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'; do sleep 2; done"
-          echo "LocalStack está listo para recibir comandos"
+      - name: Establece Terraform
+        uses: hashicorp/setup-terraform@v2
 
-      - name: Configurar Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
+      - name: Inicializa Terraform
+        working-directory: terraform
+        run: terraform init -input=false
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Plan con Terraform
+        working-directory: terraform
+        run: terraform plan -input=false
 
-      - name: Terraform Plan
-        run: terraform plan
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+      - name: Despliega con Terraform
+        working-directory: terraform
+        run: terraform apply -auto-approve -input=false
