@@ -13,9 +13,10 @@ jobs:
 
       # Este paso levanta LocalStack dentro del servidor de GitHub
       - name: Iniciar LocalStack
-        uses: localstack/localstack-github-action@v0.2.0
+        uses: localstack/localstack-github-action@v0.2.2
         with:
-          edge-port: 4566
+          image-tag: 'latest'
+          install-awslocal: 'true'
 
       - name: Configurar Terraform
         uses: hashicorp/setup-terraform@v3
