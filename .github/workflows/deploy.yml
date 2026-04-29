@@ -1,0 +1,31 @@
+name: Terraform Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # Este paso levanta LocalStack dentro del servidor de GitHub
+      - name: Iniciar LocalStack
+        uses: localstack/localstack-github-action@v0.2.0
+        with:
+          edge-port: 4566
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        # -auto-approve es vital porque en CI/CD no hay nadie para escribir "yes"
+        run: terraform apply -auto-approve
